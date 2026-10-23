@@ -209,6 +209,8 @@ main {
 .field-label b { font-weight: 500; color: var(--muted); }
 
 input[type="range"] { width: 100%; accent-color: var(--accent); }
+.field .hint { display: block; margin-top: 6px; }
+.field[hidden] { display: none; }
 
 /* ---------- color ---------- */
 .color-row { display: flex; gap: 10px; }

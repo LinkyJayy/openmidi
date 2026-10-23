@@ -7,7 +7,7 @@ import {
   pushServerPresets, saveUserPresets,
 } from './presets.js';
 
-const VERSION = '1.2.0';
+const VERSION = '1.3.0';
 const STATE_KEY = 'openmidi.state.v1';
 const PRESS_COLOR = '#ffffff';
 const OFF = [0, 0, 0];
@@ -22,6 +22,7 @@ const state = {
   colors: [...BUILT_IN_PRESETS[0].colors],
   mode: 'glow', // 'glow' = all lit, white on press; 'press' = lit only on press
   brightness: 100,
+  idleGlow: 4, // percent; faint light on idle keys in 'press' mode
   brush: '#6c5cff',
   activePreset: BUILT_IN_PRESETS[0].id,
   ...loadState(),
@@ -47,6 +48,7 @@ function loadState() {
     if (Array.isArray(saved.colors) && saved.colors.length === KEY_COUNT && saved.colors.every(c => normalizeHex(c))) out.colors = saved.colors;
     if (saved.mode === 'glow' || saved.mode === 'press') out.mode = saved.mode;
     if (Number.isFinite(saved.brightness)) out.brightness = Math.min(100, Math.max(5, saved.brightness));
+    if (Number.isFinite(saved.idleGlow)) out.idleGlow = Math.min(30, Math.max(0, saved.idleGlow));
     if (normalizeHex(saved.brush)) out.brush = normalizeHex(saved.brush);
     out.activePreset = typeof saved.activePreset === 'string' ? saved.activePreset : null;
     return out;
@@ -76,12 +78,23 @@ function displayColor(rgb) {
   return slot ? PALETTE.get(slot) : OFF;
 }
 
+// What is sent to the keyboard. In 'press' mode idle keys keep a faint glow:
+// the firmware shows its own white on a pressed key that is off, which hid the
+// key's color until release.
+function sentColor(i) {
+  const scale = state.brightness / 100;
+  if (state.mode !== 'press' || isPressed(i) || !state.idleGlow) return ledColor(i).map(v => v * scale);
+  const glow = hexToRgb(state.colors[i]).map(v => (v * scale * state.idleGlow) / 100);
+  const max = Math.max(...glow);
+  // Never let the glow round down to fully off.
+  return max > 0 && max < 1 ? glow.map(v => v / max) : glow;
+}
+
 function update() {
   renderKeys();
   if (!lighting) return;
   if (!lightsEnabled) return lighting.off();
-  const scale = state.brightness / 100;
-  lighting.setColors(Array.from({ length: KEY_COUNT }, (_, i) => ledColor(i).map(v => v * scale)));
+  lighting.setColors(Array.from({ length: KEY_COUNT }, (_, i) => sentColor(i)));
 }
 
 // ---------- keyboard rendering ----------
@@ -265,6 +278,16 @@ function initModeControls() {
     persist();
   });
 
+  const glow = $('idle-glow');
+  glow.value = state.idleGlow;
+  $('idle-glow-value').textContent = `${state.idleGlow}%`;
+  glow.addEventListener('input', () => {
+    state.idleGlow = +glow.value;
+    $('idle-glow-value').textContent = `${state.idleGlow}%`;
+    update();
+    persist();
+  });
+
   $('lights-off').addEventListener('click', () => {
     lightsEnabled = !lightsEnabled;
     $('lights-off').textContent = lightsEnabled ? 'Lights off' : 'Lights on';
@@ -275,6 +298,7 @@ function initModeControls() {
 function setMode(mode) {
   state.mode = mode;
   document.querySelectorAll('.seg').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === mode)));
+  $('idle-glow-field').hidden = mode !== 'press';
   update();
   persist();
 }
