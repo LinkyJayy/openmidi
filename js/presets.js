@@ -47,6 +47,32 @@ export function saveUserPresets(list) {
   }
 }
 
+// Server storage, available when OpenMidi runs on its Node server (e.g. Railway).
+// Returns the stored list, or null when there is no server (e.g. GitHub Pages).
+export async function fetchServerPresets() {
+  try {
+    const res = await fetch('api/presets', { cache: 'no-store' });
+    if (!res.ok) return null;
+    const { presets } = await res.json();
+    return Array.isArray(presets) ? presets.filter(isValidPreset) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function pushServerPresets(list) {
+  try {
+    const res = await fetch('api/presets', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ presets: list }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export function isValidPreset(p) {
   return p && typeof p.name === 'string' && Array.isArray(p.colors) && p.colors.length === KEY_COUNT &&
     p.colors.every(c => /^#[0-9a-f]{6}$/i.test(c)) && (p.mode === 'glow' || p.mode === 'press');

@@ -3,7 +3,8 @@ import {
   hexToRgb, normalizeHex, nearestSlot, rgbToHex,
 } from './partykeys.js';
 import {
-  BUILT_IN_PRESETS, isValidPreset, loadUserPresets, makePreset, presetStrip, saveUserPresets,
+  BUILT_IN_PRESETS, fetchServerPresets, isValidPreset, loadUserPresets, makePreset, presetStrip,
+  pushServerPresets, saveUserPresets,
 } from './presets.js';
 
 const STATE_KEY = 'openmidi.state.v1';
@@ -26,6 +27,7 @@ const state = {
 };
 
 let userPresets = loadUserPresets();
+let serverStorage = false;
 let paint = false;
 let octave = 0;
 const midiPressed = new Map(); // key index -> count of sources holding it
@@ -302,12 +304,42 @@ function presetCard(preset) {
       e.stopPropagation();
       if (!confirm(`Delete preset “${preset.name}”?`)) return;
       userPresets = userPresets.filter(p => p.id !== preset.id);
-      saveUserPresets(userPresets);
+      storePresets();
       renderPresets();
     });
     card.appendChild(del);
   }
   return card;
+}
+
+// Saves locally and, when a server is available, to the server's volume too.
+// Returns false only when the presets could not be stored anywhere.
+async function storePresets() {
+  const local = saveUserPresets(userPresets);
+  if (!serverStorage) return local;
+  const remote = await pushServerPresets(userPresets);
+  if (!remote) toast('Could not reach the server — saved in this browser only.');
+  return remote || local;
+}
+
+async function syncWithServer() {
+  const remote = await fetchServerPresets();
+  if (remote === null) return setStorageNote();
+  serverStorage = true;
+  if (!remote.length && userPresets.length) {
+    // First run against an empty server: upload what this browser already has.
+    await pushServerPresets(userPresets);
+  } else {
+    userPresets = remote;
+    saveUserPresets(userPresets);
+    renderPresets();
+  }
+  setStorageNote();
+}
+
+function setStorageNote() {
+  $('storage-note').textContent = serverStorage ? 'Synced to server' : 'Saved in this browser';
+  $('storage-note').dataset.server = serverStorage;
 }
 
 function renderPresets() {
@@ -335,8 +367,7 @@ function initPresets() {
     if (existing && !confirm(`Replace your preset “${existing.name}”?`)) return;
     const preset = existing ? { ...existing, mode: state.mode, colors: [...state.colors] } : makePreset(name, state.mode, state.colors);
     userPresets = existing ? userPresets.map(p => (p.id === existing.id ? preset : p)) : [...userPresets, preset];
-    if (!saveUserPresets(userPresets)) toast('Could not save — browser storage is unavailable. Use Export to keep it.');
-    else toast(`Saved “${name}”`);
+    storePresets().then(ok => toast(ok ? `Saved “${name}”` : 'Could not save — storage is unavailable. Use Export to keep it.'));
     state.activePreset = preset.id;
     nameInput.value = '';
     renderPresets();
@@ -366,7 +397,7 @@ function initPresets() {
         .map(p => makePreset(p.name.slice(0, 40), p.mode, p.colors));
       if (!list.length) throw new Error('no presets');
       userPresets = [...userPresets, ...list];
-      saveUserPresets(userPresets);
+      storePresets();
       renderPresets();
       toast(`Imported ${list.length} preset${list.length > 1 ? 's' : ''}`);
     } catch {
@@ -555,3 +586,4 @@ initPresets();
 initMidiControls();
 setMode(state.mode);
 updateRelayNote();
+syncWithServer();

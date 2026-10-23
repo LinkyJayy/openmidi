@@ -279,6 +279,10 @@ input[type="range"] { width: 100%; accent-color: var(--accent); }
 
 .empty { padding: 4px 0; }
 
+.storage-note { display: flex; align-items: center; gap: 6px; }
+.storage-note::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.storage-note[data-server="true"]::before { background: var(--ok); }
+
 /* ---------- footer & toast ---------- */
 footer {
   display: flex; gap: 18px; justify-content: center; flex-wrap: wrap;
