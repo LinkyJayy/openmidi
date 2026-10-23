@@ -64,19 +64,6 @@
           <input id="brightness" type="range" min="5" max="100" value="100">
         </label>
 
-        <label class="field">
-          <span class="field-label">Keyboard LED mode <b>advanced</b></span>
-          <select id="led-mode" class="block-select">
-            <option value="auto">Default for this connection</option>
-            <option value="1">0F 01 · LED control</option>
-            <option value="5">0F 05 · Performance</option>
-            <option value="2">0F 02 · untested</option>
-            <option value="3">0F 03 · untested</option>
-            <option value="4">0F 04 · untested</option>
-          </select>
-          <span class="muted small hint">If pressed keys flash the keyboard's own white instead of your color, try another mode. Unplug and replug the keyboard to reset it.</span>
-        </label>
-
         <div class="row">
           <button id="lights-off" class="btn">Lights off</button>
           <span id="relay-note" class="muted small" hidden>Relay mode snaps colors to the keyboard's 12 built-in palette colors.</span>

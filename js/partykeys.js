@@ -60,14 +60,10 @@ function checked(frame) {
   return frame;
 }
 
-// Keyboard mode byte sent with CMD 0F. Each profile has its documented default;
-// others can be chosen to test how the firmware treats held keys.
-export const DEFAULT_MODE = { rgb15: 0x01, palette71: 0x05 };
-
-function initFrames(protocol, mode = DEFAULT_MODE[protocol]) {
+function initFrames(protocol) {
   // palette71 mode uses the 7F device-type byte; color frames keep 05.
-  if (protocol === 'palette71') return [[0xf0, 0x7f, 0x30, 0x7f, 0x7f, 0x20, 0x00, 0x0f, mode, 0xf7]];
-  return [[...HEADER, 0x0f, mode, 0xf7]];
+  if (protocol === 'palette71') return [[0xf0, 0x7f, 0x30, 0x7f, 0x7f, 0x20, 0x00, 0x0f, 0x05, 0xf7]];
+  return [[...HEADER, 0x0f, 0x01, 0xf7]];
 }
 
 function offFrame(protocol) {
@@ -109,8 +105,8 @@ function nextFrame(protocol, desired, sent) {
 
 // output: a Web MIDI MIDIOutput. onStatus(state, detail) with state in
 // 'init' | 'ready' | 'sent' | 'error'. "sent" means written to the MIDI API,
-// not a physical LED acknowledgment. mode overrides the CMD 0F mode byte.
-export function createLighting(output, protocol, onStatus = () => {}, { mode } = {}) {
+// not a physical LED acknowledgment.
+export function createLighting(output, protocol, onStatus = () => {}) {
   const OFF = protocol === 'rgb15' ? '0,0,0' : 0;
   let alive = true, ready = false, failed = false, timer;
   let desired = Array(KEY_COUNT).fill(OFF);
@@ -145,7 +141,7 @@ export function createLighting(output, protocol, onStatus = () => {}, { mode } =
   function initialize() {
     if (!alive) return;
     onStatus('init');
-    for (const frame of initFrames(protocol, mode)) if (!send(frame)) return;
+    for (const frame of initFrames(protocol)) if (!send(frame)) return;
     later(() => {
       if (!send(offFrame(protocol))) return;
       sent = Array(KEY_COUNT).fill(OFF);

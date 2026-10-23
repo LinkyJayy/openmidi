@@ -22,7 +22,6 @@ const state = {
   mode: 'glow', // 'glow' = all lit, white on press; 'press' = lit only on press
   brightness: 100,
   brush: '#6c5cff',
-  ledMode: 'auto', // 'auto' or a CMD 0F mode byte as a string
   activePreset: BUILT_IN_PRESETS[0].id,
   ...loadState(),
 };
@@ -48,7 +47,6 @@ function loadState() {
     if (saved.mode === 'glow' || saved.mode === 'press') out.mode = saved.mode;
     if (Number.isFinite(saved.brightness)) out.brightness = Math.min(100, Math.max(5, saved.brightness));
     if (normalizeHex(saved.brush)) out.brush = normalizeHex(saved.brush);
-    if (['auto', '1', '2', '3', '4', '5'].includes(saved.ledMode)) out.ledMode = saved.ledMode;
     out.activePreset = typeof saved.activePreset === 'string' ? saved.activePreset : null;
     return out;
   } catch {
@@ -84,6 +82,7 @@ function update() {
   const scale = state.brightness / 100;
   lighting.setColors(Array.from({ length: KEY_COUNT }, (_, i) => ledColor(i).map(v => v * scale)));
 }
+
 // ---------- keyboard rendering ----------
 
 const keyEls = [];
@@ -499,12 +498,11 @@ function selectOutput(port, autoProtocol) {
 
 function startLighting(port) {
   const protocol = $('protocol').value;
-  const mode = state.ledMode === 'auto' ? undefined : Number(state.ledMode);
   lighting = createLighting(port, protocol, (s, detail) => {
     if (s === 'init') setStatus('init', 'Starting lights…');
     else if (s === 'ready' || s === 'sent') setStatus('ready', port.name);
     else if (s === 'error') { setStatus('error', 'Lighting error'); console.warn('[OpenMidi]', detail); }
-  }, { mode });
+  });
   update();
 }
 
@@ -560,13 +558,6 @@ function initMidiControls() {
   });
   $('protocol').addEventListener('change', () => {
     updateRelayNote();
-    const port = ports(access?.outputs).find(p => p.id === outputId);
-    if (port) selectOutput(port, false);
-  });
-  $('led-mode').value = state.ledMode;
-  $('led-mode').addEventListener('change', e => {
-    state.ledMode = e.target.value;
-    persist();
     const port = ports(access?.outputs).find(p => p.id === outputId);
     if (port) selectOutput(port, false);
   });
