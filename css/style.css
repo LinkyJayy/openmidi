@@ -160,7 +160,6 @@ main {
 .key {
   position: absolute; top: 0; border: 0; padding: 0; cursor: pointer;
   display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
-  transition: background-color 0.08s, box-shadow 0.08s;
 }
 .key.white {
   height: 100%; background: var(--white-key);

@@ -1,6 +1,7 @@
 // PartyKeys lighting driver.
 // Implements the two lighting profiles from https://protocol.partykeys.org/#verified-lighting
 //   rgb15     - direct USB PartyKeys 36: CMD 0x15, full 24-bit RGB per key.
+//               Sent immediately, with no pacing or settle wait.
 //   palette71 - PartyStudio / SAM5704 speaker relay: CMD 0x71 palette slots,
 //               max 3 note/slot pairs per 16-byte frame, paced >= 8 ms.
 // Lighting never uses Note On, so it cannot echo back as fake key presses.
@@ -9,8 +10,11 @@ export const KEY_COUNT = 36;
 export const BASE_NOTE = 48; // C3, leftmost key
 
 const HEADER = [0xf0, 0x05, 0x30, 0x7f, 0x7f, 0x20, 0x00];
-const FRAME_GAP_MS = 8;
-const SETTLE_MS = 120;
+// The frame gap and post-init settle are relay requirements only.
+const TIMING = {
+  rgb15: { gap: 0, settle: 0 },
+  palette71: { gap: 8, settle: 120 },
+};
 const MAX_FRAME = 256;
 const MAX_PALETTE_PAIRS = 3;
 
@@ -108,11 +112,14 @@ function nextFrame(protocol, desired, sent) {
 // not a physical LED acknowledgment.
 export function createLighting(output, protocol, onStatus = () => {}) {
   const OFF = protocol === 'rgb15' ? '0,0,0' : 0;
+  const { gap, settle } = TIMING[protocol];
   let alive = true, ready = false, failed = false, timer;
   let desired = Array(KEY_COUNT).fill(OFF);
   let sent = Array(KEY_COUNT).fill(null); // unknown until the first clear
 
+  // Runs fn after ms, or right away when no wait is needed.
   const later = (fn, ms) => {
+    if (!ms) return fn();
     timer = setTimeout(() => { timer = undefined; if (alive) fn(); }, ms);
   };
 
@@ -129,13 +136,18 @@ export function createLighting(output, protocol, onStatus = () => {}) {
 
   function flush() {
     if (!alive || !ready || failed || timer !== undefined) return;
-    const next = nextFrame(protocol, desired, sent);
-    if (!next) return;
-    if (!send(next.frame)) return;
-    for (const i of next.keys) sent[i] = desired[i];
-    // Recompute from what was actually written, so fast changes supersede stale ones.
+    let next;
+    // Without a gap, every pending frame goes out now; otherwise one per gap.
+    while ((next = nextFrame(protocol, desired, sent))) {
+      if (!send(next.frame)) return;
+      for (const i of next.keys) sent[i] = desired[i];
+      if (gap) {
+        // Recompute from what was actually written, so fast changes supersede stale ones.
+        later(flush, gap);
+        break;
+      }
+    }
     if (allKeys.every(i => desired[i] === sent[i])) onStatus('sent');
-    later(flush, FRAME_GAP_MS);
   }
 
   function initialize() {
@@ -149,8 +161,8 @@ export function createLighting(output, protocol, onStatus = () => {}) {
         ready = true;
         onStatus('ready');
         flush();
-      }, SETTLE_MS);
-    }, FRAME_GAP_MS);
+      }, settle);
+    }, gap);
   }
 
   try {
