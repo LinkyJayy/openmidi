@@ -60,10 +60,14 @@ function checked(frame) {
   return frame;
 }
 
-function initFrames(protocol) {
+// Keyboard mode byte sent with CMD 0F. Each profile has its documented default;
+// others can be chosen to test how the firmware treats held keys.
+export const DEFAULT_MODE = { rgb15: 0x01, palette71: 0x05 };
+
+function initFrames(protocol, mode = DEFAULT_MODE[protocol]) {
   // palette71 mode uses the 7F device-type byte; color frames keep 05.
-  if (protocol === 'palette71') return [[0xf0, 0x7f, 0x30, 0x7f, 0x7f, 0x20, 0x00, 0x0f, 0x05, 0xf7]];
-  return [[...HEADER, 0x0f, 0x01, 0xf7]];
+  if (protocol === 'palette71') return [[0xf0, 0x7f, 0x30, 0x7f, 0x7f, 0x20, 0x00, 0x0f, mode, 0xf7]];
+  return [[...HEADER, 0x0f, mode, 0xf7]];
 }
 
 function offFrame(protocol) {
@@ -105,8 +109,8 @@ function nextFrame(protocol, desired, sent) {
 
 // output: a Web MIDI MIDIOutput. onStatus(state, detail) with state in
 // 'init' | 'ready' | 'sent' | 'error'. "sent" means written to the MIDI API,
-// not a physical LED acknowledgment.
-export function createLighting(output, protocol, onStatus = () => {}) {
+// not a physical LED acknowledgment. mode overrides the CMD 0F mode byte.
+export function createLighting(output, protocol, onStatus = () => {}, { mode } = {}) {
   const OFF = protocol === 'rgb15' ? '0,0,0' : 0;
   let alive = true, ready = false, failed = false, timer;
   let desired = Array(KEY_COUNT).fill(OFF);
@@ -141,7 +145,7 @@ export function createLighting(output, protocol, onStatus = () => {}) {
   function initialize() {
     if (!alive) return;
     onStatus('init');
-    for (const frame of initFrames(protocol)) if (!send(frame)) return;
+    for (const frame of initFrames(protocol, mode)) if (!send(frame)) return;
     later(() => {
       if (!send(offFrame(protocol))) return;
       sent = Array(KEY_COUNT).fill(OFF);
@@ -167,12 +171,6 @@ export function createLighting(output, protocol, onStatus = () => {}) {
         const c = rgb.map(v => Math.max(0, Math.min(255, Math.round(v))));
         return protocol === 'rgb15' ? c.join(',') : nearestSlot(c);
       });
-      flush();
-    },
-    // Sends these keys again even if unchanged. The firmware takes over a held
-    // key's LED, so the app re-asserts the color while the key is down.
-    resend(keys) {
-      for (const i of keys) sent[i] = null;
       flush();
     },
     off() {

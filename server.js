@@ -108,7 +108,8 @@ async function handleStatic(req, res, pathname) {
     const data = await fs.readFile(file);
     res.writeHead(200, {
       'Content-Type': TYPES[path.extname(file)] ?? 'application/octet-stream',
-      'Cache-Control': rel === 'index.html' ? 'no-cache' : 'public, max-age=300',
+      // Always revalidate, so a new deploy never mixes fresh HTML with stale scripts.
+      'Cache-Control': 'no-cache',
     });
     res.end(req.method === 'HEAD' ? undefined : data);
   } catch {

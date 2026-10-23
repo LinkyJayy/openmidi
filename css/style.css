@@ -205,6 +205,8 @@ main {
 .field-label b { font-weight: 500; color: var(--muted); }
 
 input[type="range"] { width: 100%; accent-color: var(--accent); }
+select.block-select { width: 100%; max-width: none; }
+.field .hint { display: block; margin-top: 6px; }
 
 /* ---------- color ---------- */
 .color-row { display: flex; gap: 10px; }
