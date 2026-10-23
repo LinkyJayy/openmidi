@@ -7,6 +7,7 @@ import {
   pushServerPresets, saveUserPresets,
 } from './presets.js';
 
+const VERSION = '1.2.0';
 const STATE_KEY = 'openmidi.state.v1';
 const PRESS_COLOR = '#ffffff';
 const OFF = [0, 0, 0];
@@ -507,10 +508,20 @@ function startLighting(port) {
 }
 
 function attachInputs() {
-  for (const input of ports(access?.inputs)) input.onmidimessage = e => handleMidi(e.data);
+  for (const input of ports(access?.inputs)) input.onmidimessage = e => handleMidi(e.data, e.timeStamp);
 }
 
-function handleMidi(data) {
+// Time from the browser receiving a key press to OpenMidi handing the light
+// to the MIDI output. Anything beyond this happens inside the keyboard.
+function showAppDelay(receivedAt) {
+  if (!lighting || !receivedAt) return;
+  const ms = Math.max(0, performance.now() - receivedAt);
+  const el = $('app-delay');
+  el.hidden = false;
+  el.textContent = `App delay ${ms < 1 ? ms.toFixed(1) : Math.round(ms)} ms`;
+}
+
+function handleMidi(data, receivedAt) {
   const [status, a, b] = data;
   const type = status & 0xf0;
   if (status === 0xf0) return handleSysex(data);
@@ -524,6 +535,7 @@ function handleMidi(data) {
       if (n > 0) midiPressed.set(i, n); else midiPressed.delete(i);
     }
     update();
+    if (on) showAppDelay(receivedAt);
   } else if (type === 0xb0 && (a === 123 || a === 120)) {
     midiPressed.clear();
     update();
@@ -579,6 +591,7 @@ function toast(msg) {
 
 // ---------- boot ----------
 
+$('version').textContent = `v${VERSION}`;
 buildKeyboard();
 initColorControls();
 initModeControls();

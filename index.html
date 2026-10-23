@@ -36,6 +36,7 @@
           <h2>Keyboard</h2>
           <p id="kb-hint" class="muted">Click a key to preview it. Turn on <b>Paint keys</b> to color keys one by one.</p>
         </div>
+        <span id="app-delay" class="app-delay" hidden title="Time from the browser receiving your key press to OpenMidi sending the light. Any lag beyond this is inside the keyboard."></span>
         <div class="octave" title="Octave shift reported by the keyboard">
           <button id="oct-down" class="icon-btn" aria-label="Octave down">−</button>
           <span>Octave <b id="oct-value">0</b></span>
@@ -124,7 +125,7 @@
   </main>
 
   <footer>
-    <span>OpenMidi · free &amp; open source</span>
+    <span>OpenMidi <span id="version"></span> · free &amp; open source</span>
     <a href="https://github.com/LinkyJayy/openmidi" target="_blank" rel="noopener">GitHub</a>
     <a href="https://protocol.partykeys.org/#verified-lighting" target="_blank" rel="noopener">Lighting protocol</a>
   </footer>
