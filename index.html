@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OpenMidi</title>
+  <meta name="description" content="Free and open-source lighting controller for the PartyKeys MIDI keyboard.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%236c5cff'/%3E%3Crect x='7' y='8' width='4' height='16' rx='1.5' fill='%23fff'/%3E%3Crect x='14' y='8' width='4' height='16' rx='1.5' fill='%23fff'/%3E%3Crect x='21' y='8' width='4' height='16' rx='1.5' fill='%23fff'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><span></span><span></span><span></span></div>
+      <h1>OpenMidi</h1>
+    </div>
+
+    <div class="connection">
+      <span id="status" class="status" data-state="idle"><i></i><b>Not connected</b></span>
+      <select id="device" aria-label="MIDI output device" disabled><option>No devices</option></select>
+      <select id="protocol" aria-label="Lighting protocol" title="Lighting protocol">
+        <option value="rgb15">Direct USB · Full RGB</option>
+        <option value="palette71">PartyStudio relay · Palette</option>
+      </select>
+      <button id="connect" class="btn primary">Connect</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="card keyboard-card">
+      <div class="card-head">
+        <div>
+          <h2>Keyboard</h2>
+          <p id="kb-hint" class="muted">Click a key to preview it. Turn on <b>Paint keys</b> to color keys one by one.</p>
+        </div>
+        <div class="octave" title="Octave shift reported by the keyboard">
+          <button id="oct-down" class="icon-btn" aria-label="Octave down">−</button>
+          <span>Octave <b id="oct-value">0</b></span>
+          <button id="oct-up" class="icon-btn" aria-label="Octave up">+</button>
+        </div>
+      </div>
+      <div id="keyboard" class="keyboard" role="group" aria-label="36-key keyboard"></div>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Lighting mode</h2>
+        <div class="segmented" role="radiogroup" aria-label="Lighting mode">
+          <button role="radio" data-mode="glow" class="seg">
+            <strong>Always on</strong>
+            <span>All keys show their colors, pressed keys turn white</span>
+          </button>
+          <button role="radio" data-mode="press" class="seg">
+            <strong>Light on press</strong>
+            <span>Keys stay dark and show their color only while pressed</span>
+          </button>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Brightness <b id="brightness-value">100%</b></span>
+          <input id="brightness" type="range" min="5" max="100" value="100">
+        </label>
+
+        <div class="row">
+          <button id="lights-off" class="btn">Lights off</button>
+          <span id="relay-note" class="muted small" hidden>Relay mode snaps colors to the keyboard's 12 built-in palette colors.</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Color</h2>
+        <div class="color-row">
+          <label class="swatch-picker" title="Open color picker">
+            <input id="picker" type="color" value="#6c5cff">
+            <span id="picker-swatch"></span>
+          </label>
+          <label class="hex-field">
+            <span>#</span>
+            <input id="hex" type="text" value="6c5cff" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Hex color">
+          </label>
+        </div>
+        <div id="swatches" class="swatches" aria-label="Quick colors"></div>
+
+        <div class="toggle-row">
+          <div>
+            <strong>Paint keys</strong>
+            <p class="muted small">Click or drag across keys to give each one this color. Right-click a key to pick up its color.</p>
+          </div>
+          <label class="switch"><input id="paint" type="checkbox"><span></span></label>
+        </div>
+
+        <button id="fill" class="btn primary block">Set whole keyboard to this color</button>
+      </section>
+
+      <section class="card presets-card">
+        <div class="card-head">
+          <h2>Presets</h2>
+          <div class="row tight">
+            <button id="import" class="btn small">Import</button>
+            <button id="export" class="btn small">Export</button>
+            <input id="import-file" type="file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+
+        <form id="save-form" class="save-row">
+          <input id="preset-name" type="text" placeholder="Name your preset" maxlength="40" autocomplete="off">
+          <button class="btn primary" type="submit">Save</button>
+        </form>
+
+        <h3>My presets</h3>
+        <div id="user-presets" class="preset-list"></div>
+        <p id="no-presets" class="muted small empty">Nothing saved yet. Color your keys, name it above, and hit Save.</p>
+
+        <h3>Built-in</h3>
+        <div id="builtin-presets" class="preset-list"></div>
+      </section>
+    </div>
+  </main>
+
+  <footer>
+    <span>OpenMidi · free &amp; open source</span>
+    <a href="https://github.com/LinkyJayy/openmidi" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://protocol.partykeys.org/#verified-lighting" target="_blank" rel="noopener">Lighting protocol</a>
+  </footer>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
