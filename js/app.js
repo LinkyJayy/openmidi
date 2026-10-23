@@ -83,6 +83,23 @@ function update() {
   lighting.setColors(Array.from({ length: KEY_COUNT }, (_, i) => ledColor(i).map(v => v * scale)));
 }
 
+// While a key is held the keyboard firmware overrides its LED, so the color sent
+// on press only showed after release. Re-send held keys soon after the press,
+// then at a slower pace until every key is released.
+const HOLD_RESEND_MS = [15, 40, 90, 180];
+const HOLD_REPEAT_MS = 300;
+let holdTimer;
+
+function keepHeldKeysLit(step = 0) {
+  clearTimeout(holdTimer);
+  holdTimer = setTimeout(() => {
+    const held = Array.from({ length: KEY_COUNT }, (_, i) => i).filter(isPressed);
+    if (!held.length || !lighting || !lightsEnabled) return;
+    lighting.resend(held);
+    keepHeldKeysLit(step + 1);
+  }, HOLD_RESEND_MS[step] ?? HOLD_REPEAT_MS);
+}
+
 // ---------- keyboard rendering ----------
 
 const keyEls = [];
@@ -129,6 +146,7 @@ function buildKeyboard() {
       pointerPressed.clear();
       pointerPressed.add(+el.dataset.key);
       update();
+      keepHeldKeysLit();
     }
   });
 
@@ -142,6 +160,7 @@ function buildKeyboard() {
       pointerPressed.clear();
       pointerPressed.add(i);
       update();
+      keepHeldKeysLit();
     }
   });
 
@@ -518,8 +537,10 @@ function handleMidi(data) {
     const i = a - BASE_NOTE - octave * 12;
     if (i < 0 || i >= KEY_COUNT) return;
     const on = type === 0x90 && b > 0;
-    if (on) midiPressed.set(i, (midiPressed.get(i) ?? 0) + 1);
-    else {
+    if (on) {
+      midiPressed.set(i, (midiPressed.get(i) ?? 0) + 1);
+      keepHeldKeysLit();
+    } else {
       const n = (midiPressed.get(i) ?? 1) - 1;
       if (n > 0) midiPressed.set(i, n); else midiPressed.delete(i);
     }

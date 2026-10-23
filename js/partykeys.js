@@ -169,6 +169,12 @@ export function createLighting(output, protocol, onStatus = () => {}) {
       });
       flush();
     },
+    // Sends these keys again even if unchanged. The firmware takes over a held
+    // key's LED, so the app re-asserts the color while the key is down.
+    resend(keys) {
+      for (const i of keys) sent[i] = null;
+      flush();
+    },
     off() {
       desired = Array(KEY_COUNT).fill(OFF);
       flush();
